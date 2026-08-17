@@ -28,8 +28,8 @@ def _sem_api_key():
 
 class GenerateQuizView(APIView):
     """
-    Gera 5 perguntas bíblicas via Gemini com base na dificuldade informada.
-    Aceita POST com o parâmetro 'dificuldade': facil, medio ou dificil.
+    Gera perguntas bíblicas via Gemini com base na dificuldade informada.
+    Aceita POST com o parâmetro 'dificuldade': facil, medio ou dificil ou extremo.
     """
     def post(self, request):
         dificuldade = request.data.get('dificuldade')
