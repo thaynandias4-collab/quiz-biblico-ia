@@ -24,6 +24,11 @@ Este projeto segue os padrões arquiteturais de aplicações modernas:
 ### Pré-requisitos
 *   [Docker e Docker Compose](https://www.docker.com/) instalados na sua máquina.
 *   Uma chave de API válida do [Google AI Studio](https://aistudio.google.com/app/apikey).
+  
+ Autor do projeto: 
+   Thaynan Willian Dias
+   Desenvolvedor Fullstack
+   Estudante ADS- 2° Semestre - Facens
 
 ### Passo a passo
 
@@ -33,7 +38,4 @@ Este projeto segue os padrões arquiteturais de aplicações modernas:
    cd quiz-biblico-ia
 
 
-   Autor do projeto: 
-   Thaynan Willian Dias
-   Desenvolvedor Fullstack
-   Estudante ADS- 2° Semestre - Facens
+  
