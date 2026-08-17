@@ -1,0 +1,21 @@
+# Ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Python / Django
+__pycache__/
+*.pyc
+backend/venv/
+backend/db.sqlite3
+staticfiles/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Vercel
+.vercel
+
+# Editor / SO
+.DS_Store
