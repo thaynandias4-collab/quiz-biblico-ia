@@ -131,7 +131,7 @@ const finalizarQuiz = () => {
               <h2 className="mb-4 text-2xl font-bold text-indigo-400">Sobre o Projeto</h2>
               <p className="mb-6 max-w-md leading-relaxed text-slate-300">
                 Bem-vindo ao Quiz Bíblico! Este projeto foi desenvolvido por <strong>Thaynan Dias, estagiário FullStack da T4E</strong>. 
-                Ele utiliza React no Frontend e uma API construída em Django conectada à Inteligência Artificial do Claude para gerar perguntas dinâmicas e corrigir as respostas em tempo real. Seja bem-vindo e divirta-se testando seus conhecimentos bíblicos!
+                Ele utiliza React no Frontend e uma API construída em Django conectada à Inteligência Artificial do Gemini para gerar perguntas dinâmicas e corrigir as respostas em tempo real. Seja bem-vindo e divirta-se testando seus conhecimentos bíblicos!
               </p>
               <button
                onClick={() => setScreen('theme')}
