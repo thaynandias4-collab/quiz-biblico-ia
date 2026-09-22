@@ -81,12 +81,12 @@ REGRAS OBRIGATÓRIAS:
 1. Responda SOMENTE com JSON válido.
 2. O JSON deve ser uma lista de {quantidade} objetos no seguinte formato:
 [
-  {{
-    "id": 1, 
-    "pergunta": "...", 
-    "opcoes": ["A) ...", "B) ...", "C) ...", "D) ..."], 
-    "resposta_correta": "texto EXATO da opção correta, incluindo a letra"
-  }}
+
+{{
+    "id": 1,
+    "pergunta": "...",
+    "opcoes": ["A) ...", "B) ...", "C) ...", "D) ..."],
+    "resposta_correta": "texto EXATO da opção correta, incluindo a letra" }}
 ]
 """
         # ... (resto continua exatamente igual)
@@ -121,8 +121,8 @@ class ValidateQuizView(APIView):
     """
     Valida as respostas do usuário via Gemini.
     Aceita POST com:
-      - perguntas: lista das 5 perguntas originais
-      - respostas_usuario: dict {id_da_pergunta: resposta_marcada}
+    - perguntas: lista das 5 perguntas originais
+    - respostas_usuario: dict {id_da_pergunta: resposta_marcada}
     Retorna {'pontuacao': int, 'feedbacks': [...]}.
     """
 
@@ -177,15 +177,15 @@ REGRAS OBRIGATÓRIAS:
 1. Responda SOMENTE com JSON válido, sem texto, sem formatação, sem markdown.
 2. O JSON deve ter EXATAMENTE este formato:
 {{
-  "pontuacao": 3,
-  "feedbacks": [
+"pontuacao": 3,
+"feedbacks": [
     {{
-      "pergunta": "texto da pergunta",
-      "acertou": true,
-      "resposta_correta": "alternativa correta",
-      "explicacao": "breve explicação bíblica de por que está certo ou errado"
+    "pergunta": "texto da pergunta",
+    "acertou": true,
+    "resposta_correta": "alternativa correta",
+    "explicacao": "breve explicação bíblica de por que está certo ou errado"
     }}
-  ]
+]
 }}
 3. "feedbacks" deve conter UM objeto para cada pergunta (5 no total), na mesma ordem.
 4. "acertou" deve ser true/false conforme a resposta marcada confira com a correta.
