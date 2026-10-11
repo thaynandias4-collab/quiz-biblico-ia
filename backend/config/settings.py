@@ -29,8 +29,9 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
-# Chave da API do Gemini (definida no .env)
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# Credenciais e modelo da Groq (definidos no .env)
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b')
 
 
 # Application definition
