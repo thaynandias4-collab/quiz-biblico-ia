@@ -175,7 +175,8 @@ function App() {
   const nextLevel = DIFFICULTIES[DIFFICULTIES.indexOf(currentLevel) + 1];
 
   const backFrom = () => {
-    if (screen === 'difficulty') setScreen('theme');
+    if (screen === 'theme') voltarInicio();
+    else if (screen === 'difficulty') setScreen('theme');
     else if (screen === 'quantity') setScreen('difficulty');
     else if (screen === 'quiz') setScreen('quantity');
   };
