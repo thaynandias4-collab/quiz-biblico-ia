@@ -6,8 +6,9 @@ An interactive Bible quiz built with React and Django. Groq generates questions 
 
 ## Features
 
-- Choose a Bible theme, difficulty, and a round of 3, 5, 7, or 10 questions.
-- Answer one question at a time and review the correct answers at the end.
+- Choose from 12 Bible themes or a random mix, then pick a difficulty and a round of 3, 5, 7, or 10 questions.
+- Answer one question at a time, see the correct answer and a short explanation immediately, and review the round at the end. A streak badge appears after three correct answers in a row.
+- Earn 100 XP for the first correct answer in the home page challenge, plus 100 XP per correct quiz answer. Progress is saved in the current browser and unlocks new difficulty levels at 300, 900, and 1,800 XP.
 - Explore the creator and project section on the home page.
 - Generate quiz data with Groq's `openai/gpt-oss-120b` model. The backend validates the JSON, retries formatting errors, and generates longer rounds in small batches.
 
