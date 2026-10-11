@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 
 from groq import BadRequestError, Groq, RateLimitError
 
@@ -11,6 +12,21 @@ from rest_framework.views import APIView
 
 MODEL_GROQ = getattr(settings, 'GROQ_MODEL', 'openai/gpt-oss-120b')
 logger = logging.getLogger(__name__)
+RANDOM_THEME = 'Aleatório'
+QUIZ_THEMES = (
+    'Personagens bíblicos',
+    'Conhecimento e curiosidades',
+    'Quem disse isso?',
+    'Os 12 apóstolos',
+    'Êxodo',
+    'Apocalipse',
+    'Criação e Gênesis',
+    'Mulheres da Bíblia',
+    'Parábolas de Jesus',
+    'Milagres de Jesus',
+    'Salmos e Provérbios',
+    'Cartas do Novo Testamento',
+)
 QUESTION_SCHEMA = {
     'type': 'object',
     'properties': {
@@ -23,8 +39,9 @@ QUESTION_SCHEMA = {
                     'pergunta': {'type': 'string'},
                     'opcoes': {'type': 'array', 'items': {'type': 'string'}},
                     'resposta_correta': {'type': 'string'},
+                    'explicacao': {'type': 'string'},
                 },
-                'required': ['id', 'pergunta', 'opcoes', 'resposta_correta'],
+                'required': ['id', 'pergunta', 'opcoes', 'resposta_correta', 'explicacao'],
                 'additionalProperties': False,
             },
         },
@@ -167,16 +184,28 @@ class GenerateQuizView(APIView):
 
     def _gerar_perguntas(self, dificuldade, quantidade, tema):
         perguntas = []
+        temas_sorteados = random.sample(QUIZ_THEMES, quantidade) if tema == RANDOM_THEME else None
         for inicio in range(0, quantidade, 3):
             tamanho_lote = min(3, quantidade - inicio)
-            novas = self._gerar_lote(dificuldade, tamanho_lote, tema, perguntas)
+            tema_do_lote = temas_sorteados[inicio:inicio + tamanho_lote] if temas_sorteados else tema
+            novas = self._gerar_lote(dificuldade, tamanho_lote, tema_do_lote, perguntas)
             for pergunta in novas:
                 pergunta['id'] += inicio
                 perguntas.append(pergunta)
         return perguntas
 
     def _gerar_lote(self, dificuldade, quantidade, tema, anteriores):
-        regra_tema = f'O tema exclusivo deve ser "{tema}".' if tema else ''
+        if isinstance(tema, list):
+            assuntos = '\n'.join(
+                f'- Pergunta {indice}: {assunto}'
+                for indice, assunto in enumerate(tema, start=1)
+            )
+            regra_tema = (
+                'Modo aleatório: crie uma pergunta para cada assunto abaixo, seguindo a ordem dos IDs. '
+                'Não misture os assuntos em uma mesma pergunta.\n' + assuntos
+            )
+        else:
+            regra_tema = f'O tema exclusivo deve ser "{tema}".' if tema else ''
         evitar = (
             'Não repita estas perguntas já usadas: '
             + json.dumps([pergunta['pergunta'] for pergunta in anteriores], ensure_ascii=False)
@@ -191,9 +220,10 @@ Regras:
 - Use fatos bíblicos verificáveis e perguntas claras, sem ambiguidade.
 - Cada pergunta deve ter exatamente quatro alternativas, identificadas por A), B), C) e D).
 - Inclua uma única resposta correta e copie seu texto exatamente em "resposta_correta", incluindo a letra.
+- Em "explicacao", escreva uma frase curta que ajude a entender a resposta correta, sem inventar referências bíblicas.
 - Numere os IDs de 1 até {quantidade}.
 - Distribua as letras corretas entre as alternativas.
-- Retorne um objeto JSON com a chave "perguntas" e os campos "id", "pergunta", "opcoes" e "resposta_correta" em cada item.
+- Retorne um objeto JSON com a chave "perguntas" e os campos "id", "pergunta", "opcoes", "resposta_correta" e "explicacao" em cada item.
 """
         usadas = {pergunta['pergunta'].strip().casefold() for pergunta in anteriores}
         for tentativa in range(2):
@@ -242,6 +272,8 @@ Regras:
                 or any(not isinstance(opcao, str) or not opcao.strip() for opcao in opcoes)
                 or len(set(opcoes)) != 4
                 or pergunta.get('resposta_correta') not in opcoes
+                or not isinstance(pergunta.get('explicacao'), str)
+                or not pergunta['explicacao'].strip()
             ):
                 raise ValueError(f'A pergunta {indice} veio fora do formato esperado.')
 
