@@ -1,431 +1,380 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-
-
-const DIFFICULTIES = [
-  { value: 'facil', label: 'Fácil', color: 'bg-green-600 hover:bg-green-700' },
-  { value: 'medio', label: 'Médio', color: 'bg-yellow-600 hover:bg-yellow-700' },
-  { value: 'dificil', label: 'Difícil', color: 'bg-red-600 hover:bg-red-700' },
-  { value: 'extremo', label: 'Extremo', color: 'bg-purple-600 hover:bg-purple-700' },
-];
-
 const LETTERS = ['A', 'B', 'C', 'D'];
 
-export default function App() {
-  const [dificuldade, setDificuldade] = useState('');
-  const [tema, setTema] = useState('');
+const THEMES = [
+  { name: 'Personagens bíblicos', note: 'Heróis, escolhas e reviravoltas', mark: '🧙', tone: 'lilac' },
+  { name: 'Conhecimento e curiosidades', note: 'Detalhes que quase passam batido', mark: '🧠', tone: 'lemon' },
+  { name: 'Quem disse isso?', note: 'Adivinhe quem mandou essa frase', mark: '💬', tone: 'pink' },
+  { name: 'Os 12 apóstolos', note: 'O time que caminhou com Jesus', mark: '⛵', tone: 'sky' },
+  { name: 'Êxodo', note: 'Uma aventura rumo à liberdade', mark: '🏜️', tone: 'orange' },
+  { name: 'Apocalipse', note: 'Visões, mistérios e esperança', mark: '🌟', tone: 'lilac' },
+];
+
+const DIFFICULTIES = [
+  { value: 'facil', label: 'Aquecimento', detail: 'Comece de boa', mark: '●', tone: 'mint' },
+  { value: 'medio', label: 'Explorador', detail: 'Na medida pra subir de nível', mark: '◆', tone: 'lemon' },
+  { value: 'dificil', label: 'Desafio', detail: 'Agora o jogo fica sério', mark: '▲', tone: 'pink' },
+  { value: 'extremo', label: 'Lenda', detail: 'Só os brabos chegam aqui', mark: '✦', tone: 'lilac' },
+];
+
+const QUANTITIES = [3, 5, 7, 10];
+const STEP_NAMES = ['Tema', 'Nível', 'Tamanho', 'Partiu'];
+
+function cleanOption(value = '') {
+  return value.replace(/^[A-D]\)\s*/i, '').trim();
+}
+
+function BookMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 42 42" aria-hidden="true">
+      <path d="M6.5 9.5c6.3-2.2 11.4-.8 14.5 2.4v23c-3.1-3.2-8.2-4.6-14.5-2.4z" />
+      <path d="M35.5 9.5c-6.3-2.2-11.4-.8-14.5 2.4v23c3.1-3.2 8.2-4.6 14.5-2.4z" />
+      <path d="M10 15c3.5-.8 6.5-.2 8.5 1.1M10 20c3.5-.8 6.5-.2 8.5 1.1M32 15c-3.5-.8-6.5-.2-8.5 1.1M32 20c-3.5-.8-6.5-.2-8.5 1.1" />
+    </svg>
+  );
+}
+
+function Trail({ active, onBack }) {
+  return (
+    <div className="trail-wrap">
+      <div className="trail" aria-label={`Etapa ${active + 1} de ${STEP_NAMES.length}`}>
+        {STEP_NAMES.map((step, index) => (
+          <div className={`trail-step ${index < active ? 'is-done' : ''} ${index === active ? 'is-current' : ''}`} key={step}>
+            <span className="trail-dot" aria-hidden="true">{index < active ? '✓' : ''}</span>
+            <span>{step}</span>
+          </div>
+        ))}
+      </div>
+      {onBack && <button className="text-button trail-back" onClick={onBack}>Voltar</button>}
+    </div>
+  );
+}
+
+function App() {
   const [screen, setScreen] = useState('intro');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [tema, setTema] = useState('');
+  const [dificuldade, setDificuldade] = useState('');
   const [perguntas, setPerguntas] = useState([]);
   const [respostas, setRespostas] = useState({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [resultado, setResultado] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [demoAnswer, setDemoAnswer] = useState('');
 
-const iniciarQuiz = async (dificuldadeEscolhida, quantidadeEscolhida) => {
+  const currentQuestion = perguntas[currentIndex];
+  const answeredCount = useMemo(() => perguntas.filter((question) => respostas[question.id]).length, [perguntas, respostas]);
+  const activeStep = ({ theme: 0, difficulty: 1, quantity: 2, quiz: 3 })[screen] ?? 0;
+
+  const backFrom = () => {
+    if (screen === 'difficulty') setScreen('theme');
+    else if (screen === 'quantity') setScreen('difficulty');
+    else if (screen === 'quiz') setScreen('quantity');
+  };
+
+  const iniciarQuiz = async (quantidade) => {
     setLoading(true);
     setError('');
-
     try {
-      const res = await fetch(`${API_URL}/api/generate-quiz/`, {
+      const response = await fetch(`${API_URL}/api/generate-quiz/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Agora mandamos as duas informações pro Django:
-        body: JSON.stringify({ 
-          dificuldade: dificuldadeEscolhida, 
-          quantidade: quantidadeEscolhida,
-          tema: tema
-        }), 
+        body: JSON.stringify({ dificuldade, quantidade, tema }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao gerar perguntas');
-      }
-
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível criar as perguntas. Tente novamente.');
+      if (!Array.isArray(data.perguntas) || data.perguntas.length === 0) throw new Error('A resposta veio sem perguntas. Tente gerar o quiz novamente.');
       setPerguntas(data.perguntas);
+      setRespostas({});
+      setResultado(null);
+      setCurrentIndex(0);
       setScreen('quiz');
     } catch (err) {
-      setError(err.message);
-      setScreen('home'); // Se der erro, volta pra tela inicial
+      setError(err.message || 'Não foi possível conectar ao quiz. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
   const marcarResposta = (perguntaId, resposta) => {
-    setRespostas((prev) => ({ ...prev, [perguntaId]: resposta }));
+    setRespostas((previous) => ({ ...previous, [perguntaId]: resposta }));
   };
 
-  const todasRespondidas = perguntas.every((p) => respostas[p.id]);
-
-const finalizarQuiz = () => {
-    // Muda a tela imediatamente para o resultado sem carregar nada
+  const finalizarQuiz = () => {
+    const feedbacks = perguntas.map((question) => {
+      const selected = respostas[question.id] || '';
+      const correct = cleanOption(selected).toLocaleLowerCase('pt-BR') === cleanOption(question.resposta_correta).toLocaleLowerCase('pt-BR');
+      return {
+        pergunta: question.pergunta,
+        acertou: correct,
+        resposta_marcada: cleanOption(selected),
+        resposta_correta: cleanOption(question.resposta_correta),
+        explicacao: question.explicacao || '',
+      };
+    });
+    setResultado({ pontuacao: feedbacks.filter((item) => item.acertou).length, feedbacks });
     setScreen('result');
-    
-    let nota = 0;
-    const feedbacksGerados = [];
-
-    // Limpa espaços ou letrinhas para garantir que o acerto seja calculado com perfeição
-    const limparTexto = (texto) => {
-      if (!texto) return '';
-      return texto.replace(/^[A-D]\)\s*/i, '').trim().toLowerCase();
-    };
-
-    perguntas.forEach((p) => {
-      const respostaOriginal = p.resposta_correta;
-      const respostaMarcada = respostas[p.id] || "";
-
-      // Compara a resposta marcada com o gabarito
-      const isCorrect = limparTexto(respostaMarcada) === limparTexto(respostaOriginal);
-
-      if (isCorrect) {
-        nota += 1;
-      }
-
-      // Monta o objeto de feedback no formato exato que a sua tela espera
-      feedbacksGerados.push({
-        pergunta: p.pergunta,
-        acertou: isCorrect,
-        resposta_correta: respostaOriginal.replace(/^[A-D]\)\s*/i, ''),
-        explicacao: "" // Mantemos vazio para não poluir o visual
-      });
-    });
-
-    setResultado({
-      pontuacao: nota,
-      feedbacks: feedbacksGerados
-    });
   };
-  
+
   const reiniciar = () => {
     setPerguntas([]);
     setRespostas({});
     setResultado(null);
     setError('');
-    setScreen('theme'); // Volta para a tela de escolha de tema
+    setScreen('theme');
   };
 
+  const voltarInicio = () => {
+    setError('');
+    setScreen('intro');
+  };
+
+  const percent = resultado && perguntas.length ? Math.round((resultado.pontuacao / perguntas.length) * 100) : 0;
+  const resultMessage = percent === 100 ? 'Nível lenda desbloqueado!' : percent >= 75 ? 'Mandou muito bem!' : percent >= 50 ? 'Boa! Você tá no caminho.' : 'Mais uma rodada e você sobe de nível!';
+  const rank = percent === 100 ? 'Lenda bíblica' : percent >= 75 ? 'Explorador avançado' : percent >= 50 ? 'Explorador' : 'Novato do mapa';
+  const xpEarned = resultado ? resultado.pontuacao * 100 : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-900 text-white">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-4 py-12">
-        <h1 
-          onClick={() => {
-            setScreen('intro');
-            setLoading(false);
-          }} 
-          className="mb-2 text-center text-4xl font-bold tracking-tight cursor-pointer transition-colors hover:text-indigo-400"
-        >
-          Quiz Bíblico
-        </h1>
+    <main className="app-shell">
+      <header className="site-header">
+        <button className="brand" onClick={voltarInicio} aria-label="Quiz Bíblico, voltar ao início">
+          <BookMark />
+          <span>Quiz <b>Bíblico</b></span>
+        </button>
+        <nav className="header-actions" aria-label="Navegação principal">
+          {screen === 'intro' && <a className="about-nav" href="#about">Sobre o criador <span aria-hidden="true">↘</span></a>}
+          <div className="header-note"><span className="header-spark" aria-hidden="true">✦</span> Bora descobrir?</div>
+        </nav>
+      </header>
 
-        {error && (
-          <div className="mb-6 w-full rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {error}
+      {error && <div className="alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Fechar aviso">×</button></div>}
+
+      {screen === 'intro' && (
+        <section className="home-screen page-width" aria-labelledby="home-title">
+          <div className="hero-copy">
+            <p className="kicker"><span className="kicker-line" /> Sua próxima missão começa aqui</p>
+            <h1 id="home-title">Bora testar<br />o que você sabe?</h1>
+            <p className="hero-description">Histórias, personagens e desafios bíblicos. Escolha uma missão, marque pontos e descubra seu nível.</p>
+            <button className="primary-button hero-button" onClick={() => setScreen('theme')}>
+              Jogar agora <span aria-hidden="true">✦</span>
+            </button>
+            <p className="hero-footnote"><span aria-hidden="true">⚡</span> Uma rodada rápida já vale XP.</p>
           </div>
-        )}
-        {screen === 'intro' && (
-          <section className="flex flex-col items-center gap-6">
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/80 p-8 text-center shadow-xl">
-              <h2 className="mb-4 text-2xl font-bold text-indigo-400">Sobre o Projeto</h2>
-              <p className="mb-6 max-w-md leading-relaxed text-slate-300">
-                Bem-vindo ao Quiz Bíblico! Este projeto foi desenvolvido por <strong>Thaynan Dias, estagiário FullStack da T4E</strong>. 
-                Ele utiliza React no Frontend e uma API construída em Django conectada à Inteligência Artificial do Gemini para gerar perguntas dinâmicas e corrigir as respostas em tempo real. Seja bem-vindo e divirta-se testando seus conhecimentos bíblicos!
-              </p>
-              <button
-               onClick={() => setScreen('theme')}
-                className="w-full rounded-xl bg-indigo-600 px-6 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 hover:bg-indigo-700"
-              >
-                Jogar Agora!
-              </button>
+
+          <div className="demo-scene" aria-label="Mapa ilustrado com pergunta demonstrativa interativa">
+            <div className="map-label"><span>🧭</span> MAPA DAS HISTÓRIAS</div>
+            <div className="map-island" aria-hidden="true">
+              <svg className="map-path" viewBox="0 0 440 420" fill="none">
+                <path d="M42 333C95 327 61 246 139 250C218 254 202 341 278 309C347 281 287 204 358 190C407 180 389 130 369 85" />
+              </svg>
+              <span className="map-stop stop-start">⚑</span><span className="map-stop stop-mid">✦</span><span className="map-stop stop-end">🏆</span>
+              <span className="map-bush bush-one" /><span className="map-bush bush-two" /><span className="map-bush bush-three" />
+              <span className="map-star star-one">✦</span><span className="map-star star-two">✧</span>
             </div>
-          </section>
-        )}
-
-        {/* NOVA TELA DE ESCOLHER TEMA */}
-        {screen === 'theme' && (
-          <section className="flex flex-col items-center gap-6">
-            <h2 className="text-center text-xl font-semibold text-slate-300">
-              Escolha um Tema:
-            </h2>
-            
-            <div className="grid grid-cols-1 gap-4 w-full max-w-sm mt-4">
-              {[
-                "Personagens Bíblicos", 
-                "Conhecimento técnico e curiosidades", 
-                "Quem disse isso?", 
-                "Os 12 apóstolos", 
-                "Êxodo", 
-                "Apocalipse"
-              ].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => {
-                    setTema(t);          // Salva o tema escolhido
-                    setScreen('home');   // Vai para a tela de dificuldade
-                  }}
-                  className="rounded-xl bg-sky-600 px-6 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 hover:bg-sky-700"
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setScreen('intro')}
-              className="mt-6 text-sm font-medium text-slate-400 underline transition-colors hover:text-white"
-            >
-              Voltar para a Apresentação
-            </button>
-          </section>
-        )}
-
-        {screen === 'home' && (
-          <section className="flex flex-col items-center gap-4">
-            <h2 className="text-center text-lg font-semibold text-slate-300">
-              Escolha a dificuldade:
-            </h2>
-            <div className="flex w-full flex-col gap-4 items-center">
-              {DIFFICULTIES.map((d) => (
-                <button
-                  key={d.value}
-                  onClick={() => {
-                  setDificuldade(d.value);
-                  setScreen('quantity');
-                  }}
-                  disabled={loading}
-                  className={`w-64 rounded-xl px-6 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 ${d.color}`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {/* NOVA TELA: ESCOLHA DE QUANTIDADE */}
-        {screen === 'quantity' && (
-          <section className="flex flex-col items-center gap-6">
-            <h2 className="text-center text-xl font-semibold text-slate-300">
-              Quantas perguntas você quer?
-            </h2>
-            
-            {/* Os 4 botões de opções */}
-            <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
-              <button onClick={() => iniciarQuiz(dificuldade, 3)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">3</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 5)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">5</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 7)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">7</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 10)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">10</button>
-            </div>
-
-            {/* Botão de voltar */}
-            <button
-              onClick={() => setScreen('home')}
-              className="mt-6 text-sm font-medium text-slate-400 underline transition-colors hover:text-white"
-            >
-              Voltar para Dificuldade
-            </button>
-          </section>
-        )}
-
-            {/* NOVO BOTÃO DE VOLTAR AQUI */}
-            <button
-              onClick={() => setScreen('intro')}
-              className="mt-6 text-sm font-medium text-slate-400 underline transition-colors hover:text-white"
-            >
-              Voltar para a Apresentação
-            </button>
-          </section>
-        )}
-      {/* --- COLE O BLOCO NOVO EXATAMENTE AQUI --- */}
-        {screen === 'quantity' && (
-          <section className="flex flex-col items-center gap-6">
-            <h2 className="text-center text-xl font-semibold text-slate-300">
-              Quantas perguntas você quer?
-            </h2>
-            
-            <div className="grid grid-cols-2 gap-4 w-full max-w-xs mt-4">
-              <button onClick={() => iniciarQuiz(dificuldade, 3)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">3</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 5)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">5</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 7)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">7</button>
-              <button onClick={() => iniciarQuiz(dificuldade, 10)} className="rounded-xl bg-indigo-600 py-4 text-2xl font-bold text-white shadow-lg transition-all hover:scale-105 hover:bg-indigo-700">10</button>
-            </div>
-
-            <button
-              onClick={() => setScreen('home')}
-              className="mt-6 text-sm font-medium text-slate-400 underline transition-colors hover:text-white"
-            >
-              Voltar para Dificuldade
-            </button>
-          </section>
-        )}
-        {/* ----------------------------------------- */}
-
-        {loading && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-            <p className="text-lg text-slate-300">Loading...</p>
-          </div>
-        )}
-
-        {!loading && screen === 'quiz' && (
-          <section className="w-full">
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={() => setScreen('home')}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
-              >
-                Voltar
-              </button>
-              <span className="text-sm text-slate-400">
-                {Object.keys(respostas).length}/{perguntas.length} respondidas
-              </span>
-            </div>
-
-            <div className="space-y-8">
-              {perguntas.map((p) => (
-                <article
-                  key={p.id}
-                  className="rounded-xl border border-slate-700 bg-slate-800/60 p-6 shadow-lg"
-                >
-                  <h3 className="mb-4 text-lg font-semibold">
-                    {p.id}. {p.pergunta}
-                  </h3>
-                  <div className="space-y-2">
-                    {p.opcoes.map((opcao, idx) => {
-                      const marcada = respostas[p.id] === opcao;
-                      return (
-                        <label
-                          key={idx}
-                          className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                            marcada
-                              ? 'border-indigo-500 bg-indigo-500/20'
-                              : 'border-slate-700 bg-slate-900 hover:border-slate-500'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`pergunta-${p.id}`}
-                            value={opcao}
-                            checked={marcada}
-                            onChange={() => marcarResposta(p.id, opcao)}
-                            className="h-4 w-4 accent-indigo-500"
-                          />
-                          <span className="mr-1 text-sm font-bold text-slate-400">
-                            {LETTERS[idx]})
-                          </span>
-                          {/* Limpeza aplicada aqui: */}
-                          <span>{opcao.replace(/^[A-D]\)\s*/i, '')}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            <button
-              onClick={finalizarQuiz}
-              disabled={!todasRespondidas}
-              className="mt-8 w-full rounded-xl bg-indigo-600 px-6 py-4 text-lg font-semibold shadow-lg transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-            >
-              Finalizar Quiz
-            </button>
-
-            {!todasRespondidas && (
-              <p className="mt-3 text-center text-sm text-slate-500">
-                Responda todas as perguntas para finalizar.
-              </p>
-            )}
-          </section>
-        )}
-
-        {!loading && screen === 'result' && resultado && (
-          <section className="w-full">
-            
-            {/* --- NOVO CARD DE PONTUAÇÃO DUOLINGO --- */}
-            <div className="mb-8 rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center shadow-xl">
-              <p className="text-sm font-medium uppercase tracking-wider text-slate-400">
-                Sua pontuação
-              </p>
-              
-              <div className="mt-2 flex items-baseline justify-center gap-2">
-                <span className="text-6xl font-bold">{resultado.pontuacao}</span>
-                {/* Aqui está dinâmico agora: puxa o total de perguntas que o usuário escolheu */}
-                <span className="text-3xl text-slate-500"> / {perguntas.length}</span>
-              </div>
-
-              {/* Barra de Progresso */}
-              <div className="mt-6 h-4 w-full overflow-hidden rounded-full bg-slate-700">
-                <div 
-                  className="h-4 rounded-full bg-green-500 transition-all duration-1000 ease-out" 
-                  style={{ width: `${(resultado.pontuacao / perguntas.length) * 100}%` }}
-                ></div>
-              </div>
-              
-              {/* Mensagens Dinâmicas baseadas na Porcentagem */}
-              <div className="mt-4 text-lg font-bold">
-                {(() => {
-                  const porcentagem = (resultado.pontuacao / perguntas.length) * 100;
-                  
-                  if (porcentagem === 100) {
-                    return <p className="text-yellow-400">Perfeito! Você é um mestre! 🏆</p>;
-                  } else if (porcentagem >= 75) {
-                    return <p className="text-green-400">Excelente trabalho! 👏</p>;
-                  } else if (porcentagem >= 50) {
-                    return <p className="text-blue-400">Muito bom! Quase lá! 👍</p>;
-                  } else {
-                    return <p className="text-orange-400">Continue praticando, não desista! 💪</p>;
-                  }
-                })()}
-              </div>
-            </div>
-            {/* --- FIM DO CARD --- */}
-
-            <div className="space-y-6">
-              {resultado.feedbacks.map((fb, idx) => {
-                const acertou = fb.acertou === true;
-                return (
-                  <div
-                    key={idx}
-                    className={`rounded-xl border p-6 shadow-lg ${
-                      acertou
-                        ? 'border-green-700 bg-green-900/30'
-                        : 'border-red-700 bg-red-900/30'
-                    }`}
+            <div className="scene-caption"><span>FASE 01 · AQUECIMENTO</span><span className="caption-mark">+100 XP</span></div>
+            <article className="demo-card">
+              <div className="demo-card-top"><span className="demo-chip">DESAFIO RELÂMPAGO</span><span className="demo-points">⚡ 100 XP</span></div>
+              <h2>Quem construiu uma arca para atravessar o dilúvio?</h2>
+              <div className="demo-options">
+                {['Moisés', 'Davi', 'Noé', 'Abraão'].map((option, index) => (
+                  <button
+                    className={`demo-option ${demoAnswer === option ? (option === 'Noé' ? 'demo-correct' : 'demo-wrong') : ''}`}
+                    key={option}
+                    onClick={() => setDemoAnswer(option)}
+                    aria-pressed={demoAnswer === option}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <h3 className="text-lg font-semibold">{fb.pergunta}</h3>
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                          acertou
-                            ? 'bg-green-600 text-white'
-                            : 'bg-red-600 text-white'
-                        }`}
-                      >
-                        {acertou ? 'Acertou' : 'Errou'}
-                      </span>
-                    </div>
+                    <span>{LETTERS[index]}</span>{option}{demoAnswer === option && <b aria-hidden="true">{option === 'Noé' ? '✓' : '×'}</b>}
+                  </button>
+                ))}
+              </div>
+              <p className={`demo-feedback ${demoAnswer ? 'is-visible' : ''}`} aria-live="polite">
+                {demoAnswer ? (demoAnswer === 'Noé' ? 'Acertou! +100 XP pra você ✨' : 'Quase! Foi Noé. Tenta outra!') : 'Escolhe uma resposta pra testar'}
+              </p>
+            </article>
+            <div className="scene-verse"><span className="verse-star">✦</span><span>Seu conhecimento é o superpoder.</span></div>
+          </div>
+          <div className="home-signature"><span>Quiz Bíblico</span><span className="signature-rule" /><span>Desafie sua memória. Colecione XP.</span></div>
+        </section>
+      )}
 
-                    <p className="mt-3 text-sm text-slate-300">
-                      <span className="font-semibold text-slate-200">
-                        Resposta correta:
-                      </span>{' '}
-                      {fb.resposta_correta}
-                    </p>
-                    
-                  </div>
+      {screen === 'intro' && (
+        <section className="about-section page-width" id="about" aria-labelledby="about-title">
+          <div className="about-card">
+            <div className="about-portrait-wrap">
+              <div className="portrait-spark portrait-spark-one" aria-hidden="true">✦</div>
+              <div className="portrait-spark portrait-spark-two" aria-hidden="true">✳</div>
+              <img
+                className="about-portrait"
+                src="/images/thaynan-profile.jpg"
+                alt="Thaynan Dias, criador do Quiz Bíblico"
+                loading="lazy"
+                decoding="async"
+              />
+              <span className="portrait-caption">QUEM CRIOU ESSA MISSÃO?</span>
+            </div>
+            <div className="about-copy">
+              <p className="kicker"><span className="kicker-line" /> PRAZER, THAYNAN!</p>
+              <h2 id="about-title">Um projeto feito<br />com propósito e curiosidade.</h2>
+              <p className="about-intro">Sou Thaynan Dias, desenvolvedor Full Stack em formação e estagiário na T4E.</p>
+              <p>Criei o Quiz Bíblico para juntar duas coisas que me animam: tecnologia e aprendizado. A ideia é explorar histórias e conhecimentos bíblicos de um jeito leve, interativo e com cara de jogo.</p>
+              <div className="about-tags" aria-label="Tecnologias do projeto">
+                <span>React</span><span>Django</span><span>IA generativa</span>
+              </div>
+              <button className="about-play-link" onClick={() => { setScreen('theme'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                Bora jogar? <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {['theme', 'difficulty', 'quantity'].includes(screen) && !loading && (
+        <section className="selection-screen page-width">
+          <Trail active={activeStep} onBack={backFrom} />
+
+          {screen === 'theme' && (
+            <div className="selection-content">
+              <div className="section-heading">
+                <p className="kicker"><span className="kicker-line" /> MISSÃO 01 · ESCOLHA SEU MAPA</p>
+                <h1>Qual aventura é a sua?</h1>
+                <p>Escolha um universo bíblico e bora jogar.</p>
+              </div>
+              <div className="theme-grid">
+                {THEMES.map((item) => (
+                  <button className={`theme-option ${tema === item.name ? 'is-selected' : ''}`} key={item.name} onClick={() => { setTema(item.name); setScreen('difficulty'); }}>
+                    <span className={`theme-mark ${item.tone}`} aria-hidden="true">{item.mark}</span>
+                    <span className="theme-copy"><b>{item.name}</b><small>{item.note}</small></span>
+                    <span className="option-arrow" aria-hidden="true">↗</span>
+                  </button>
+                ))}
+              </div>
+              <button className="text-button back-home" onClick={voltarInicio}>Voltar ao início</button>
+            </div>
+          )}
+
+          {screen === 'difficulty' && (
+            <div className="selection-content narrow-content">
+              <div className="section-heading">
+                <p className="kicker"><span className="kicker-line" /> MISSÃO 02 · {tema}</p>
+                <h1>Escolha seu nível.</h1>
+                <p>Vai no seu ritmo. Dá pra encarar qualquer fase.</p>
+              </div>
+              <div className="difficulty-list">
+                {DIFFICULTIES.map((item) => (
+                  <button className={`difficulty-option ${dificuldade === item.value ? 'is-selected' : ''}`} key={item.value} onClick={() => { setDificuldade(item.value); setScreen('quantity'); }}>
+                    <span className={`difficulty-mark ${item.tone}`} aria-hidden="true">{item.mark}</span>
+                    <span className="difficulty-copy"><b>{item.label}</b><small>{item.detail}</small></span>
+                    <span className="option-arrow" aria-hidden="true">↗</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {screen === 'quantity' && (
+            <div className="selection-content quantity-content">
+              <div className="section-heading">
+                <p className="kicker"><span className="kicker-line" /> MISSÃO 03 · {tema}</p>
+                <h1>Quantas fases vai encarar?</h1>
+                <p>Mais perguntas, mais XP. Escolha o tamanho da rodada.</p>
+              </div>
+              <div className="quantity-grid">
+                {QUANTITIES.map((quantity) => (
+                  <button className="quantity-option" key={quantity} onClick={() => iniciarQuiz(quantity)} disabled={loading}>
+                    <strong>{quantity}</strong><span>{quantity === 1 ? 'pergunta' : 'perguntas'}</span>
+                    <small className="quantity-xp">ATÉ {quantity * 100} XP</small><i aria-hidden="true">↗</i>
+                  </button>
+                ))}
+              </div>
+              <p className="quantity-note"><span aria-hidden="true">⚡</span> Acerte e acumule XP para subir no mapa.</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {loading && (
+        <section className="loading-screen page-width" aria-live="polite">
+          <div className="loading-art" aria-hidden="true"><span>✳</span><i /><i /><i /></div>
+          <p className="kicker"><span className="kicker-line" /> CARREGANDO MISSÃO</p>
+          <h1>Preparando o desafio<br />e embaralhando as cartas.</h1>
+          <p>Segura aí. Sua aventura já vai começar!</p>
+        </section>
+      )}
+
+      {screen === 'quiz' && !loading && currentQuestion && (
+        <section className="quiz-screen page-width">
+          <Trail active={3} onBack={backFrom} />
+          <div className="quiz-meta"><span>🗺️ {tema}</span><span>⚡ {DIFFICULTIES.find((item) => item.value === dificuldade)?.label}</span><span>+100 XP por acerto</span></div>
+          <div className="quiz-progress-copy"><span>FASE {String(currentIndex + 1).padStart(2, '0')} <b>de {String(perguntas.length).padStart(2, '0')}</b></span><span>{answeredCount} / {perguntas.length} respondidas</span></div>
+          <div className="question-progress" role="progressbar" aria-label="Progresso do quiz" aria-valuenow={currentIndex + 1} aria-valuemin={1} aria-valuemax={perguntas.length}>
+            {perguntas.map((question, index) => <span className={`${index <= currentIndex ? 'is-current' : ''} ${respostas[question.id] ? 'is-answered' : ''}`} key={question.id} />)}
+          </div>
+          <article className="question-panel" key={currentQuestion.id}>
+            <div className="question-number"><span>⚡</span> DESAFIO DA VEZ</div>
+            <h1>{currentQuestion.pergunta}</h1>
+            <fieldset className="answer-list">
+              <legend className="sr-only">Escolha uma resposta</legend>
+              {currentQuestion.opcoes.map((option, index) => {
+                const selected = respostas[currentQuestion.id] === option;
+                return (
+                  <label className={`answer-option ${selected ? 'is-selected' : ''}`} key={`${currentQuestion.id}-${index}`}>
+                    <input type="radio" name={`question-${currentQuestion.id}`} checked={selected} onChange={() => marcarResposta(currentQuestion.id, option)} />
+                    <span className="answer-letter">{LETTERS[index]}</span>
+                    <span className="answer-text">{cleanOption(option)}</span>
+                    <span className="answer-indicator" aria-hidden="true">{selected ? '✓' : ''}</span>
+                  </label>
                 );
               })}
-            </div>
+            </fieldset>
+          </article>
+          <div className="quiz-controls">
+            <button className="text-button" onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))} disabled={currentIndex === 0}>← Anterior</button>
+            {currentIndex < perguntas.length - 1 ? (
+              <button className="primary-button" onClick={() => setCurrentIndex((index) => Math.min(perguntas.length - 1, index + 1))} disabled={!respostas[currentQuestion.id]}>Próxima pergunta <span aria-hidden="true">↗</span></button>
+            ) : (
+              <button className="primary-button" onClick={finalizarQuiz} disabled={answeredCount !== perguntas.length}>Ver meu resultado <span aria-hidden="true">↗</span></button>
+            )}
+          </div>
+          {answeredCount !== perguntas.length && <p className="answer-hint">Escolha uma resposta para liberar a próxima fase.</p>}
+        </section>
+      )}
 
-            <button
-              onClick={reiniciar}
-              className="mt-10 w-full rounded-xl bg-indigo-600 px-6 py-4 text-lg font-semibold shadow-lg transition-all hover:bg-indigo-700"
-            >
-              Jogar novamente
-            </button>
-          </section>
-        )}
-      </div>
-    </div>
+      {screen === 'result' && resultado && (
+        <section className="result-screen page-width">
+          <div className="result-heading">
+            <p className="kicker"><span className="kicker-line" /> MISSÃO CONCLUÍDA</p>
+            <h1>{resultMessage}</h1>
+          </div>
+          <div className="result-rewards">
+            <div className="reward-badge" aria-hidden="true">🏆</div>
+            <div><span>SEU RANK</span><strong>{rank}</strong></div>
+            <div className="reward-divider" />
+            <div className="xp-reward"><span>XP GANHO</span><strong>⚡ {xpEarned}</strong></div>
+          </div>
+          <div className="result-overview">
+            <div className="result-score"><span className="score-label">Sua pontuação</span><div><strong>{resultado.pontuacao}</strong><span> / {perguntas.length}</span></div></div>
+            <div className="score-track" role="progressbar" aria-label="Sua pontuação" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${percent}%` }} /></div>
+            <p>{percent === 100 ? 'Você acertou todas as perguntas.' : `Você acertou ${resultado.pontuacao} de ${perguntas.length} perguntas.`}</p>
+          </div>
+          <div className="feedback-heading"><h2>Revise suas respostas</h2><span>{tema}</span></div>
+          <div className="feedback-list">
+            {resultado.feedbacks.map((feedback, index) => (
+              <article className={`feedback-item ${feedback.acertou ? 'was-correct' : 'was-wrong'}`} key={`${index}-${feedback.pergunta}`}>
+                <div className="feedback-index">{String(index + 1).padStart(2, '0')}</div>
+                <div className="feedback-copy"><h3>{feedback.pergunta}</h3><p className="feedback-answer"><span>{feedback.acertou ? 'Sua resposta' : 'Você marcou'}</span> {feedback.resposta_marcada}</p>{!feedback.acertou && <p className="feedback-answer correct-answer"><span>Resposta correta</span> {feedback.resposta_correta}</p>}{feedback.explicacao && <p className="feedback-explanation">{feedback.explicacao}</p>}</div>
+                <span className="feedback-status">{feedback.acertou ? 'Acertou ✓' : 'Revisar'}</span>
+              </article>
+            ))}
+          </div>
+          <div className="result-actions"><button className="primary-button" onClick={reiniciar}>Escolher outra jornada <span aria-hidden="true">↗</span></button><button className="text-button" onClick={voltarInicio}>Voltar ao início</button></div>
+        </section>
+      )}
+
+      <footer className="site-footer"><span>Quiz Bíblico</span><span>Uma pergunta de cada vez.</span>{screen === 'intro' && <a href="#about">Sobre o criador</a>}</footer>
+    </main>
   );
 }
+
+export default App;
