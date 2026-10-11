@@ -339,7 +339,6 @@ function App() {
           <div className="about-card">
             <div className="about-portrait-wrap">
               <div className="portrait-spark portrait-spark-one" aria-hidden="true">✦</div>
-              <div className="portrait-spark portrait-spark-two" aria-hidden="true">✳</div>
               <img
                 className="about-portrait"
                 src="/images/thaynan-profile.jpg"
@@ -431,7 +430,7 @@ function App() {
 
       {loading && (
         <section className="loading-screen page-width" aria-live="polite">
-          <div className="loading-art" aria-hidden="true"><span>✳</span><i /><i /><i /></div>
+          <div className="loading-art" aria-hidden="true"><i /><i /><i /></div>
           <p className="kicker"><span className="kicker-line" /> CARREGANDO MISSÃO</p>
           <h1>Preparando o desafio<br />e embaralhando as cartas.</h1>
           <p>Segura aí. Sua aventura já vai começar!</p>
