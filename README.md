@@ -1,41 +1,62 @@
-# 📖 Quiz Bíblico com Inteligência Artificial
+# Bible Quiz with AI
 
-Uma aplicação Full-Stack interativa que gera perguntas bíblicas de forma dinâmica utilizando a Inteligência Artificial do Google Gemini. O sistema foi desenhado visando escalabilidade, separação clara de responsabilidades e código limpo.
+An interactive Bible quiz built with React and Django. Groq generates questions for a chosen theme and difficulty, while the app guides players through a game-like experience with progress, scores, and XP.
 
-🌐 **Acesse o projeto online: https://quiz-biblico-ia-fios.vercel.app/
+[Open the live app](https://quiz-biblico-ia-fios.vercel.app/)
 
-## 🛠 Tecnologias Utilizadas
+## Features
 
-Este projeto segue os padrões arquiteturais de aplicações modernas:
+- Choose a Bible theme, difficulty, and a round of 3, 5, 7, or 10 questions.
+- Answer one question at a time and review the correct answers at the end.
+- Explore the creator and project section on the home page.
+- Generate quiz data with Groq's `openai/gpt-oss-120b` model. The backend validates the JSON, retries formatting errors, and generates longer rounds in small batches.
 
-**Back-end:**
-*   **Python & Django:** Utilizado para construir uma API robusta, com clara separação entre models, views e urls.
-*   **Google Gemini API:** Integração com LLM para geração inteligente e contextualizada do quiz.
+## Stack
 
-**Front-end:**
-*   **React (via Vite):** Construção de uma interface de usuário responsiva, baseada em componentes reutilizáveis e com gerenciamento de estado eficiente.
+- Frontend: React and Vite
+- Backend: Python, Django, and Django REST Framework
+- AI provider: Groq API
+- Local containers: Docker Compose
 
-**Infraestrutura & Qualidade:**
-*   **Docker:** O projeto é conteinerizado, permitindo que a aplicação completa suba com um único comando `docker-compose up`.
-*   **Testes:** Configurado para receber testes com `pytest` (Backend) e `Jest` (Frontend).
+## Run locally
 
-## ⚙️ Como executar o projeto localmente
+1. Clone the repository:
 
-### Pré-requisitos
-*   [Docker e Docker Compose](https://www.docker.com/) instalados na sua máquina.
-*   Uma chave de API válida do [Google AI Studio](https://aistudio.google.com/app/apikey).
-  
- Autor do projeto: 
-   Thaynan Willian Dias
-   Desenvolvedor Fullstack
-   Estudante ADS- 2° Semestre - Facens
-
-### Passo a passo
-
-1. **Clone o repositório**
    ```bash
-   git clone [https://github.com/SEU_USUARIO/quiz-biblico-ia.git](https://github.com/SEU_USUARIO/quiz-biblico-ia.git)
+   git clone https://github.com/thaynandias4-collab/quiz-biblico-ia.git
    cd quiz-biblico-ia
+   ```
 
+2. Create the backend environment file:
 
-  
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+   Set `GROQ_API_KEY` in `backend/.env` to a key from the [Groq Console](https://console.groq.com/keys). Keep this file private.
+
+3. Start the app with Docker Compose:
+
+   ```bash
+   docker compose up --build
+   ```
+
+   Open the frontend at [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:8000](http://localhost:8000).
+
+## Checks
+
+Run the backend tests:
+
+```bash
+docker compose exec backend python manage.py test quiz
+```
+
+Build the frontend:
+
+```bash
+cd frontend && npm run build
+```
+
+## Creator
+
+Thaynan Willian Dias is a Full Stack developer and Software Analysis and Development student at Facens. The app includes an introduction to the creator and the project on its home page.
