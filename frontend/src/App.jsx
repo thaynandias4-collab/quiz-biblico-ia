@@ -51,6 +51,17 @@ const JOURNEY_SEGMENTS = [
   { start: JOURNEY_STOPS[1], control: { x: 390, y: 300 }, end: JOURNEY_STOPS[2] },
   { start: JOURNEY_STOPS[2], control: { x: 600, y: 35 }, end: JOURNEY_STOPS[3] },
 ];
+const JOURNEY_MOBILE_STOPS = [
+  { x: 90, y: 80 },
+  { x: 230, y: 240 },
+  { x: 90, y: 400 },
+  { x: 230, y: 560 },
+];
+const JOURNEY_MOBILE_SEGMENTS = [
+  { start: JOURNEY_MOBILE_STOPS[0], control: { x: 260, y: 70 }, end: JOURNEY_MOBILE_STOPS[1] },
+  { start: JOURNEY_MOBILE_STOPS[1], control: { x: 0, y: 260 }, end: JOURNEY_MOBILE_STOPS[2] },
+  { start: JOURNEY_MOBILE_STOPS[2], control: { x: 300, y: 390 }, end: JOURNEY_MOBILE_STOPS[3] },
+];
 const CONFETTI_PIECES = Array.from({ length: 30 }, (_, index) => ({
   left: `${(index * 47 + 13) % 100}%`,
   delay: `${(index % 8) * 65}ms`,
@@ -154,6 +165,37 @@ function LevelUpConfetti() {
   );
 }
 
+function JourneyRoute({ variant, segments, marker, segmentProgress, routeVisible, currentIndex }) {
+  const isMobile = variant === 'mobile';
+
+  return (
+    <svg className={`journey-route journey-route-${variant}`} viewBox={isMobile ? '0 0 320 650' : '0 0 800 330'} aria-hidden="true" focusable="false">
+      {isMobile ? (
+        <>
+          <ellipse cx="58" cy="282" rx="48" ry="22" fill="#fbf8ff" transform="rotate(-24 58 282)" />
+          <ellipse cx="268" cy="464" rx="57" ry="24" fill="#e8dcff" transform="rotate(18 268 464)" />
+        </>
+      ) : (
+        <>
+          <ellipse cx="105" cy="95" rx="75" ry="35" fill="#fbf8ff" transform="rotate(-18 105 95)" />
+          <ellipse cx="653" cy="257" rx="87" ry="28" fill="#e8dcff" transform="rotate(16 653 257)" />
+        </>
+      )}
+      {segments.map((segment, index) => {
+        const path = `M ${segment.start.x} ${segment.start.y} Q ${segment.control.x} ${segment.control.y} ${segment.end.x} ${segment.end.y}`;
+        return <g key={path}>
+          <path className="journey-route-empty" d={path} />
+          {segmentProgress[index] > 0 && <path className="journey-route-filled" d={path} pathLength="100" style={{ strokeDasharray: `${routeVisible ? segmentProgress[index] : 0} 100`, transitionDelay: `${index * 130}ms` }} />}
+        </g>;
+      })}
+      {marker && <g className={`journey-marker ${routeVisible ? 'is-visible' : ''}`} style={{ transitionDelay: `${currentIndex * 130 + 700}ms` }}>
+        <circle cx={marker.x} cy={marker.y} r="17" fill="#fffdf8" />
+        <circle cx={marker.x} cy={marker.y} r="11" fill="#ffc64a" stroke="#21183a" strokeWidth="3" />
+      </g>}
+    </svg>
+  );
+}
+
 function JourneyMap({ totalXp }) {
   const mapRef = useRef(null);
   const [routeVisible, setRouteVisible] = useState(false);
@@ -180,6 +222,7 @@ function JourneyMap({ totalXp }) {
     ? (totalXp - DIFFICULTIES[currentIndex].unlockXp) / (nextLevel.unlockXp - DIFFICULTIES[currentIndex].unlockXp)
     : 1;
   const marker = nextLevel && progress > 0 ? pointOnJourney(JOURNEY_SEGMENTS[currentIndex], progress) : null;
+  const mobileMarker = nextLevel && progress > 0 ? pointOnJourney(JOURNEY_MOBILE_SEGMENTS[currentIndex], progress) : null;
   const segmentProgress = JOURNEY_SEGMENTS.map((_, index) => index < currentIndex ? 100 : index === currentIndex ? progress * 100 : 0);
 
   return (
@@ -192,21 +235,8 @@ function JourneyMap({ totalXp }) {
         <strong className="journey-total">{totalXp.toLocaleString('pt-BR')} XP no total</strong>
       </div>
       <div className="journey-board">
-        <svg className="journey-route" viewBox="0 0 800 330" aria-hidden="true" focusable="false">
-          <ellipse cx="105" cy="95" rx="75" ry="35" fill="#fbf8ff" transform="rotate(-18 105 95)" />
-          <ellipse cx="653" cy="257" rx="87" ry="28" fill="#e8dcff" transform="rotate(16 653 257)" />
-          {JOURNEY_SEGMENTS.map((segment, index) => {
-            const path = `M ${segment.start.x} ${segment.start.y} Q ${segment.control.x} ${segment.control.y} ${segment.end.x} ${segment.end.y}`;
-            return <g key={path}>
-              <path className="journey-route-empty" d={path} />
-              {segmentProgress[index] > 0 && <path className="journey-route-filled" d={path} pathLength="100" style={{ strokeDasharray: `${routeVisible ? segmentProgress[index] : 0} 100`, transitionDelay: `${index * 130}ms` }} />}
-            </g>;
-          })}
-          {marker && <g className={`journey-marker ${routeVisible ? 'is-visible' : ''}`} style={{ transitionDelay: `${currentIndex * 130 + 700}ms` }}>
-            <circle cx={marker.x} cy={marker.y} r="17" fill="#fffdf8" />
-            <circle cx={marker.x} cy={marker.y} r="11" fill="#ffc64a" stroke="#21183a" strokeWidth="3" />
-          </g>}
-        </svg>
+        <JourneyRoute variant="desktop" segments={JOURNEY_SEGMENTS} marker={marker} segmentProgress={segmentProgress} routeVisible={routeVisible} currentIndex={currentIndex} />
+        <JourneyRoute variant="mobile" segments={JOURNEY_MOBILE_SEGMENTS} marker={mobileMarker} segmentProgress={segmentProgress} routeVisible={routeVisible} currentIndex={currentIndex} />
         <ol className="journey-stops">
           {DIFFICULTIES.map((level, index) => {
             const isCurrent = index === currentIndex;
@@ -215,9 +245,13 @@ function JourneyMap({ totalXp }) {
             return <li
               className={`journey-stop ${isCurrent ? 'is-current' : isReached ? 'is-reached' : 'is-upcoming'}`}
               key={level.value}
-              style={{ '--map-x': `${(JOURNEY_STOPS[index].x / 800) * 100}%`, '--map-y': `${(JOURNEY_STOPS[index].y / 330) * 100}%` }}
+              style={{
+                '--map-x': `${(JOURNEY_STOPS[index].x / 800) * 100}%`,
+                '--map-y': `${(JOURNEY_STOPS[index].y / 330) * 100}%`,
+                '--mobile-map-x': `${(JOURNEY_MOBILE_STOPS[index].x / 320) * 100}%`,
+                '--mobile-map-y': `${(JOURNEY_MOBILE_STOPS[index].y / 650) * 100}%`,
+              }}
             >
-              <span className="journey-mobile-segment" aria-hidden="true"><span style={{ height: `${routeVisible ? segmentProgress[index] || 0 : 0}%` }} /></span>
               <span className="journey-stop-pin" aria-hidden="true">
                 {isCurrent && !nextLevel ? <svg className="journey-finish-flag" viewBox="0 0 24 24" fill="none"><path d="M6 21V4m0 1c3-2 5 2 8 0 2-1 3-1 5 0v10c-2-1-3-1-5 0-3 2-5-2-8 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : String(index + 1).padStart(2, '0')}
               </span>
