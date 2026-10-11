@@ -40,6 +40,25 @@ const DIFFICULTIES = [
   { value: 'extremo', label: 'Lenda', detail: 'Só os brabos chegam aqui', mark: '✦', tone: 'lilac', unlockXp: 1800 },
 ];
 
+const JOURNEY_STOPS = [
+  { x: 110, y: 230 },
+  { x: 270, y: 90 },
+  { x: 500, y: 230 },
+  { x: 690, y: 90 },
+];
+const JOURNEY_SEGMENTS = [
+  { start: JOURNEY_STOPS[0], control: { x: 185, y: 42 }, end: JOURNEY_STOPS[1] },
+  { start: JOURNEY_STOPS[1], control: { x: 390, y: 300 }, end: JOURNEY_STOPS[2] },
+  { start: JOURNEY_STOPS[2], control: { x: 600, y: 35 }, end: JOURNEY_STOPS[3] },
+];
+const CONFETTI_PIECES = Array.from({ length: 30 }, (_, index) => ({
+  left: `${(index * 47 + 13) % 100}%`,
+  delay: `${(index % 8) * 65}ms`,
+  duration: `${1800 + (index % 5) * 180}ms`,
+  drift: `${((index % 2 ? 1 : -1) * (25 + (index * 17) % 100))}px`,
+  rotation: `${(index % 2 ? 1 : -1) * (200 + (index * 31) % 360)}deg`,
+}));
+
 const QUANTITIES = [3, 5, 7, 10];
 const STEP_NAMES = ['Tema', 'Nível', 'Tamanho', 'Partiu'];
 
@@ -85,6 +104,14 @@ function getCurrentLevel(totalXp) {
   return DIFFICULTIES[0];
 }
 
+function pointOnJourney(segment, progress) {
+  const remaining = 1 - progress;
+  return {
+    x: remaining * remaining * segment.start.x + 2 * remaining * progress * segment.control.x + progress * progress * segment.end.x,
+    y: remaining * remaining * segment.start.y + 2 * remaining * progress * segment.control.y + progress * progress * segment.end.y,
+  };
+}
+
 function XpCard({ totalXp, level, nextLevel }) {
   const remainingXp = nextLevel ? nextLevel.unlockXp - totalXp : 0;
   const progress = nextLevel
@@ -101,6 +128,105 @@ function XpCard({ totalXp, level, nextLevel }) {
         <span className="xp-card-next">{nextLevel ? `${remainingXp} XP para ${nextLevel.label}` : 'Nível máximo alcançado'}</span>
       </div>
     </div>
+  );
+}
+
+function LevelUpConfetti() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setVisible(false), 3200);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="level-up-confetti" aria-hidden="true">
+      {CONFETTI_PIECES.map((piece, index) => (
+        <span
+          className={`confetti-piece confetti-tone-${index % 4}`}
+          key={index}
+          style={{ left: piece.left, animationDelay: piece.delay, animationDuration: piece.duration, '--confetti-drift': piece.drift, '--confetti-rotation': piece.rotation }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function JourneyMap({ totalXp }) {
+  const mapRef = useRef(null);
+  const [routeVisible, setRouteVisible] = useState(false);
+
+  useEffect(() => {
+    if (!window.IntersectionObserver) {
+      setRouteVisible(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setRouteVisible(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.25 });
+    observer.observe(mapRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const currentIndex = DIFFICULTIES.indexOf(getCurrentLevel(totalXp));
+  const nextLevel = DIFFICULTIES[currentIndex + 1];
+  const progress = nextLevel
+    ? (totalXp - DIFFICULTIES[currentIndex].unlockXp) / (nextLevel.unlockXp - DIFFICULTIES[currentIndex].unlockXp)
+    : 1;
+  const marker = nextLevel && progress > 0 ? pointOnJourney(JOURNEY_SEGMENTS[currentIndex], progress) : null;
+  const segmentProgress = JOURNEY_SEGMENTS.map((_, index) => index < currentIndex ? 100 : index === currentIndex ? progress * 100 : 0);
+
+  return (
+    <section ref={mapRef} className={`journey-map ${nextLevel ? '' : 'is-complete'}`} aria-labelledby="journey-title">
+      <div className="journey-map-heading">
+        <div>
+          <h2 id="journey-title">{nextLevel ? 'Seu caminho até Lenda' : 'Trilha concluída: você é Lenda!'}</h2>
+          <p>{nextLevel ? `Faltam ${(nextLevel.unlockXp - totalXp).toLocaleString('pt-BR')} XP para alcançar ${nextLevel.label}.` : 'Você chegou ao último nível. Continue jogando para somar mais XP.'}</p>
+        </div>
+        <strong className="journey-total">{totalXp.toLocaleString('pt-BR')} XP no total</strong>
+      </div>
+      <div className="journey-board">
+        <svg className="journey-route" viewBox="0 0 800 330" aria-hidden="true" focusable="false">
+          <ellipse cx="105" cy="95" rx="75" ry="35" fill="#fbf8ff" transform="rotate(-18 105 95)" />
+          <ellipse cx="653" cy="257" rx="87" ry="28" fill="#e8dcff" transform="rotate(16 653 257)" />
+          {JOURNEY_SEGMENTS.map((segment, index) => {
+            const path = `M ${segment.start.x} ${segment.start.y} Q ${segment.control.x} ${segment.control.y} ${segment.end.x} ${segment.end.y}`;
+            return <g key={path}>
+              <path className="journey-route-empty" d={path} />
+              {segmentProgress[index] > 0 && <path className="journey-route-filled" d={path} pathLength="100" style={{ strokeDasharray: `${routeVisible ? segmentProgress[index] : 0} 100`, transitionDelay: `${index * 130}ms` }} />}
+            </g>;
+          })}
+          {marker && <g className={`journey-marker ${routeVisible ? 'is-visible' : ''}`} style={{ transitionDelay: `${currentIndex * 130 + 700}ms` }}>
+            <circle cx={marker.x} cy={marker.y} r="17" fill="#fffdf8" />
+            <circle cx={marker.x} cy={marker.y} r="11" fill="#ffc64a" stroke="#21183a" strokeWidth="3" />
+          </g>}
+        </svg>
+        <ol className="journey-stops">
+          {DIFFICULTIES.map((level, index) => {
+            const isCurrent = index === currentIndex;
+            const isReached = totalXp >= level.unlockXp;
+            const status = isCurrent && !nextLevel ? 'Conquista final' : isCurrent ? 'Você está aqui' : isReached ? 'Conquistado' : 'A conquistar';
+            return <li
+              className={`journey-stop ${isCurrent ? 'is-current' : isReached ? 'is-reached' : 'is-upcoming'}`}
+              key={level.value}
+              style={{ '--map-x': `${(JOURNEY_STOPS[index].x / 800) * 100}%`, '--map-y': `${(JOURNEY_STOPS[index].y / 330) * 100}%` }}
+            >
+              <span className="journey-mobile-segment" aria-hidden="true"><span style={{ height: `${routeVisible ? segmentProgress[index] || 0 : 0}%` }} /></span>
+              <span className="journey-stop-pin" aria-hidden="true">
+                {isCurrent && !nextLevel ? <svg className="journey-finish-flag" viewBox="0 0 24 24" fill="none"><path d="M6 21V4m0 1c3-2 5 2 8 0 2-1 3-1 5 0v10c-2-1-3-1-5 0-3 2-5-2-8 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="journey-stop-copy"><strong>{level.label}</strong><small>{level.unlockXp.toLocaleString('pt-BR')} XP · {status}</small></span>
+            </li>;
+          })}
+        </ol>
+      </div>
+    </section>
   );
 }
 
@@ -493,6 +619,7 @@ function App() {
 
       {screen === 'result' && resultado && (
         <section className="result-screen page-width">
+          {resultado.levelUnlocked && <LevelUpConfetti />}
           <div className="result-heading">
             <p className="kicker"><span className="kicker-line" /> MISSÃO CONCLUÍDA</p>
             <h1>{resultMessage}</h1>
@@ -518,6 +645,7 @@ function App() {
               </article>
             ))}
           </div>
+          <JourneyMap totalXp={totalXp} />
           <div className="result-actions"><button className="primary-button" onClick={reiniciar}>Escolher outra jornada</button><button className="text-button" onClick={voltarInicio}>Voltar ao início</button></div>
         </section>
       )}
