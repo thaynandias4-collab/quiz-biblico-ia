@@ -1,63 +1,133 @@
-# Bible Quiz with AI
+# Quiz Bíblico com IA
 
-An interactive Bible quiz built with React and Django. Groq generates questions for a chosen theme and difficulty, while the app guides players through a game-like experience with progress, scores, and XP.
+Um quiz criado para os jovens e adolescentes que lidero na igreja. A ideia é explorar histórias, personagens e ensinamentos bíblicos de um jeito divertido: escolher uma missão, responder às perguntas e acompanhar a própria evolução.
 
-[Open the live app](https://quiz-biblico-ia-fios.vercel.app/)
+**[Jogar o quiz](https://quiz-biblico-ia-fios.vercel.app/)**
 
-## Features
+## O projeto
 
-- Choose from 12 Bible themes or a random mix, then pick a difficulty and a round of 3, 5, 7, or 10 questions.
-- Answer one question at a time, see the correct answer and a short explanation immediately, and review the round at the end. A streak badge appears after three correct answers in a row.
-- Earn 100 XP for the first correct answer in the home page challenge, plus 100 XP per correct quiz answer. Progress is saved in the current browser and unlocks new difficulty levels at 300, 900, and 1,800 XP.
-- Explore the creator and project section on the home page.
-- Generate quiz data with Groq's `openai/gpt-oss-120b` model. The backend validates the JSON, retries formatting errors, and generates longer rounds in small batches.
+O Quiz Bíblico com IA combina perguntas geradas pela API da Groq com uma experiência inspirada em jogos. Cada rodada permite escolher um tema, um nível de dificuldade e a quantidade de perguntas. Depois de responder, o jogador vê o gabarito, uma explicação curta e os pontos conquistados.
 
-## Stack
+Criei o projeto para aproximar o estudo bíblico da linguagem dos jovens e adolescentes do grupo que lidero. Ele também se tornou uma oportunidade para praticar integração entre frontend, backend e IA em uma aplicação real.
 
-- Frontend: React and Vite
-- Backend: Python, Django, and Django REST Framework
-- AI provider: Groq API
-- Local containers: Docker Compose
+## O que você encontra no quiz
 
-## Run locally
+- **12 temas bíblicos e um modo aleatório** que mistura assuntos diferentes na mesma rodada.
+- **Rodadas de 3, 5, 7 ou 10 perguntas**, com quatro alternativas por pergunta.
+- **Resposta e explicação imediatas**, revisão completa ao final e indicação de sequência de acertos.
+- **100 XP por acerto**, além de um desafio inicial que concede 100 XP uma vez por navegador.
+- **Níveis desbloqueáveis**, mapa de progresso responsivo e confetes ao alcançar um novo nível.
+- **Página sobre o criador**, com o contexto do projeto.
 
-1. Clone the repository:
+| Nível | XP necessário para desbloquear |
+| --- | ---: |
+| Aquecimento | 0 |
+| Explorador | 300 |
+| Desafio | 900 |
+| Lenda | 1.800 |
+
+O XP é salvo no `localStorage` do navegador. Não é preciso criar uma conta, mas o progresso não é sincronizado entre dispositivos e pode ser perdido ao limpar os dados do navegador.
+
+## Tecnologias
+
+| Parte | Tecnologias |
+| --- | --- |
+| Interface | React, JavaScript, Vite e CSS |
+| API | Python, Django e Django REST Framework |
+| Geração das perguntas | Groq API (`openai/gpt-oss-120b` por padrão) |
+| Progresso | `localStorage` do navegador |
+| Desenvolvimento local | Docker Compose |
+| Hospedagem | Vercel |
+
+## Como funciona
+
+```mermaid
+flowchart LR
+    J[Jogador] --> F[React e Vite]
+    F -->|tema, nível e quantidade| B[API Django]
+    B -->|solicita perguntas| G[Groq API]
+    G -->|resposta em JSON| B
+    B -->|perguntas validadas| F
+    F -->|XP e níveis| L[localStorage]
+```
+
+O backend solicita perguntas à Groq, valida a estrutura da resposta e tenta outro formato JSON quando necessário. Rodadas maiores são geradas em lotes de até três perguntas, com verificação para evitar repetições na mesma rodada. O frontend compara as respostas escolhidas com o gabarito recebido, calcula a pontuação e atualiza o XP.
+
+Essas decisões surgiram de desafios reais do desenvolvimento: respostas da IA fora do formato esperado, limites temporários da API, perguntas repetidas e configuração da comunicação entre frontend e backend no deploy.
+
+> As perguntas são geradas por IA e podem conter imprecisões. Para estudo ou ensino, vale conferir o conteúdo diretamente no texto bíblico.
+
+## Executar localmente
+
+Para usar contêineres, você precisa de [Docker Compose](https://docs.docker.com/compose/) e de uma chave da [Groq](https://console.groq.com/keys).
+
+1. Clone o projeto:
 
    ```bash
    git clone https://github.com/thaynandias4-collab/quiz-biblico-ia.git
    cd quiz-biblico-ia
    ```
 
-2. Create the backend environment file:
+2. Crie o arquivo de ambiente do backend:
 
    ```bash
    cp backend/.env.example backend/.env
    ```
 
-   Set `GROQ_API_KEY` in `backend/.env` to a key from the [Groq Console](https://console.groq.com/keys). Keep this file private.
+3. Abra `backend/.env` e substitua `sua_chave_aqui` pelo valor da sua `GROQ_API_KEY`.
 
-3. Start the app with Docker Compose:
+4. Inicie os serviços:
 
    ```bash
    docker compose up --build
    ```
 
-   Open the frontend at [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:8000](http://localhost:8000).
+5. Acesse o quiz em **http://localhost:5173**. A API estará em **http://localhost:8000**.
 
-## Checks
+Para encerrar, use `Ctrl+C` e depois `docker compose down`.
 
-Run the backend tests:
+### Sem Docker
 
-```bash
-docker compose exec backend python manage.py test quiz
-```
-
-Build the frontend:
+Em dois terminais, com Python 3.11+ e Node.js 20+ instalados:
 
 ```bash
-cd frontend && npm run build
+# Terminal 1 — backend, a partir da raiz do projeto
+python3 -m venv backend/venv
+source backend/venv/bin/activate
+pip install -r backend/requirements.txt
+cd backend
+python manage.py migrate
+python manage.py runserver
 ```
 
-## Creator
+```bash
+# Terminal 2 — frontend, a partir da raiz do projeto
+cd frontend
+npm ci
+npm run dev
+```
 
-Thaynan Willian Dias is a Full Stack developer and Software Analysis and Development student at Facens. The app includes an introduction to the creator and the project on its home page.
+O frontend usa `http://localhost:8000` como endereço padrão da API. Para usar outro backend, configure `VITE_BACKEND_URL` no ambiente do frontend.
+
+## Configuração do deploy
+
+No frontend, defina `VITE_BACKEND_URL` com a URL pública do backend. No backend, configure as variáveis abaixo no ambiente da hospedagem:
+
+| Variável | Finalidade |
+| --- | --- |
+| `GROQ_API_KEY` | Chave privada da API da Groq |
+| `GROQ_MODEL` | Modelo usado para gerar perguntas; opcional |
+| `DJANGO_SECRET_KEY` | Chave privada do Django |
+| `DEBUG` | Use `False` em produção |
+| `DJANGO_ALLOWED_HOSTS` | Domínios aceitos pelo backend, separados por vírgula e sem `https://` |
+| `CORS_ALLOWED_ORIGINS` | Origens permitidas para o frontend, separadas por vírgula e com `https://` |
+
+O arquivo `backend/.env` é apenas para uso local e não deve ser enviado ao GitHub. A `GROQ_API_KEY` pertence somente ao backend; variáveis com prefixo `VITE_` ficam acessíveis no código do navegador.
+
+## Sobre o criador
+
+Desenvolvido por **Thaynan Willian Dias** para o grupo de jovens e adolescentes que lidera na igreja. A página inicial do quiz conta um pouco mais sobre o criador e a ideia por trás do projeto.
+
+---
+
+**English summary:** An AI-powered Bible quiz built for a church youth group. Players choose from 12 themes or a random mode, answer Groq-generated questions, earn browser-saved XP and unlock new difficulty levels. Built with React, Vite, Django and Django REST Framework.
